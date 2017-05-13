@@ -5,29 +5,12 @@ date: "2017Äê5ÔÂ10ÈÕ"
 output: pdf_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
 
 ## R Markdown
 
 This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
 
 When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
-```
-
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
 
 ```{r}
 # load tain_data
@@ -56,24 +39,37 @@ sort(colSums(sapply(train_data, is.na)),decreasing = TRUE)
 
 ```{r}
 # identify categorical features and numeric ones
-# library(xlsx) #load the package
+# we assume that if num of unique values of certain variables < 20, 
+# it's also catergorical 
 cat_num <- NULL
 
 for(col in train_data){
   if(is.factor(col)){
     cat_num <- c(cat_num,'cat')
-  }else if(length(unique(col)) < 20){
+  }else if(length(unique(col)) < 20){ 
     cat_num <- c(cat_num,"num_cat")
   }else{
     cat_num <- c(cat_num,"num")
   }
 }
-fea_list <- read.csv("G:/kaggle/houseprice/House_Price_Feature_List_to_be_filled.csv")
-head(fea_list)
-# fea_list$type <- cat_num
+
 # write.table(fea_list,
           # file = "G:/kaggle/houseprice/House_Price_Feature_List_to_be_filled.csv")
 # train_data_num <- train_data[sapply(train_data, is.numeric)]
+```
+
+```{r}
+# keep record of type of each  variable
+library(xlsx) #load the package
+
+fea_list <- read.xlsx(
+  file = "G:/kaggle/houseprice/House_Price_Feature_List_to_be_filled.xlsx",
+  sheetName = "Sheet1")
+# head(fea_list)
+fea_list$type <- cat_num
+write.csv(fea_list,
+      file = "G:/kaggle/houseprice/House_Price_Feature_List_to_be_filled.csv"
+      )
 ```
 
 
@@ -105,15 +101,17 @@ cat_fea_names <- colnames(train_data)[cat_num == "cat"]
 # simply analysis correlation between numeric features and prediction
 library(corrplot)
 correlation <- cor(train_data[,num_fea_names],use = "pairwise.complete.obs")
+
 # head(correlation)
 rowId <- apply(correlation, 1, function(x){
-  return (x["SalePrice"] > 0.5 | x["SalePrice"] < -0.5)
+  return (x[dim(correlation)[2]] > 0.5 | x[dim(correlation)[2]] < -0.5)
 })
+correlation[rowId,rowId]
 corrplot(correlation[rowId,rowId], method = "square")
 ```
 
 ```{r}
-# simply analysis correlation between categorical features and prediction
+# simply analysis correlation between numerical category features with prediction
 
 for(cat_num in num_cat_names){
   boxplot(
@@ -126,10 +124,13 @@ for(cat_num in num_cat_names){
 ```
 
 ```{r}
-# numerical category features with prediction
-library(tabplot)
-for(cat_name in cat_fea_names){
-  
+# simply analysis correlation between categorical features and prediction
+# library(tabplot)
+# library(lattice)
+# bwplot(Neighborhood ~ SalePrice, data = train_data)
+for(name in cat_fea_names){
+  plot(x = train_data[,name], y = train_data[,"SalePrice"],
+       xlab = name, ylab = "SalePrice")
 }
 
 ```
