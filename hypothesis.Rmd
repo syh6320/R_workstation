@@ -1,0 +1,48 @@
+---
+title: "hypothesis"
+author: "Yihao Song(Allen)"
+date: "2017年5月14日"
+output: pdf_document
+---
+
+```{r}
+train <- read.csv("G:/kaggle/houseprice/data/train.csv", stringsAsFactors = FALSE)
+```
+
+```{r}
+# generate variables from normal distribution
+norm_varibels <- rnorm(n = 1000)
+plot(density(norm_varibels))
+```
+
+```{r}
+# dnorm, pnorm, qnorm
+dnorm(x = 0.5) # give the density of x
+pnorm(q = 0) # give the CDF from minus infinit to q
+qnorm(p = 0.975) # give the z-score corrosponding to cdf p
+```
+
+```{r}
+# compute critical value in normal distribution
+alpha <- 0.05 
+cri_val <- qnorm(1 - alpha/2) # for two tailed
+print(cri_val)
+qnorm(1 - alpha) # for one tailed
+```
+
+```{r}
+# Chi Square distribution and Testing
+chisqu_variable <- rchisq(100000, df = 3)
+plot(density(chisqu_variable))
+
+dchisq(x = 2, df = 4)
+pchisq(q = 3.356694, df = 4)
+qchisq(p = 0.5, df = 4)
+```
+
+```{r}
+# chi square goodness-of-fit tests.
+chisq.test(x = c(10,0), p = c(0.5,0.5))
+# chisq.test performs chi-squared contingency table tests and 
+```
+
