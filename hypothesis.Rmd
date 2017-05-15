@@ -31,6 +31,32 @@ qnorm(1 - alpha) # for one tailed
 ```
 
 ```{r}
+# CLT from normal distribution
+nmean <- NULL
+nor <- rnorm(10000)
+plot(density(nor))
+sample_size <- 3
+for(i in c(1:100)){
+  lsample <- sample(nor,sample_size)
+  nmean <- c(nmean, mean(lsample))
+}
+plot(density(nmean))
+```
+
+```{r}
+# create log normal and look at what impact a skewed set of data has on CLT
+lmean <- NULL
+ln <- rlnorm(10000)
+plot(density(ln))
+sample_size <- 3
+for(i in c(1:100)){
+  lsample <- sample(ln,sample_size)
+  lmean <- c(lmean, mean(lsample))
+}
+plot(density(lmean))
+```
+
+```{r}
 # Chi Square distribution and Testing
 chisqu_variable <- rchisq(100000, df = 3)
 plot(density(chisqu_variable))
@@ -43,6 +69,53 @@ qchisq(p = 0.5, df = 4)
 ```{r}
 # chi square goodness-of-fit tests.
 chisq.test(x = c(10,0), p = c(0.5,0.5))
-# chisq.test performs chi-squared contingency table tests and 
+# chisq.test performs chi-squared contingency table tests
+```
+
+```{r}
+# Chi Square test for catergocial feature in house price
+# Is Building type and quality independent or not?
+train$higQua <- ifelse(train$OverallQual > 5, 1, 0)
+table(train$higQua, train$BldgType)
+chisq.test(x = train$higQua, y = train$BldgType)
+```
+
+```{r}
+# create new a feature that is the house's Age
+train$Age <- 2017 - train$YearBuilt
+table(train$Age)
+plot(density(train$Age))
+```
+
+```{r}
+# try to find if there is some correlation between age and sale price
+boxplot(log(subset(train,Age < median(Age))$SalePrice) + 1,
+        log(subset(train,Age >= median(Age))$SalePrice) + 1,
+        xlab = "Age", ylab = "log sale price",
+        names = c("old", "new")
+        )
+```
+
+```{r}
+# 
+with(subset(train, Age < median(Age)), plot(density(log(SalePrice))))
+with(subset(train, Age >= median(Age)), lines(density(log(SalePrice)),col = "red"))
+```
+
+```{r}
+# checking if means of two groups of saleprice corresponding to Age are equal
+# by T testing
+t.test(x = log(subset(train, Age < median(Age))$SalePrice),
+       y = log(subset(train, Age >= median(Age))$SalePrice)
+       )
+```
+
+```{r}
+# compute power of t testing
+library(pwr)
+pwr.t2n.test(n1 = dim(subset(train,Age < median(Age)))[1],
+             n2 = dim(subset(train,Age >= median(Age)))[1],
+             d = 27.231, # d is mean of alternative hypothesis
+             sig.level = 0.05)
 ```
 
