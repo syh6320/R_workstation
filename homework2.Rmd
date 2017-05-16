@@ -1,0 +1,28 @@
+---
+title: "homework2"
+author: "Yihao Song(Allen)"
+date: "2017年5月15日"
+output: html_document
+---
+
+```{r}
+# 1st question
+power <- 0.8
+pwr.t2n.test(d = 1, sig.level = 0.05, power = 0.8)
+```
+
+```{r}
+# rolling dice
+# using chi square test to test if they are fair dices
+p1 <- 1/6
+p0 <- 5/6
+chisq.test(x = c(48,35,15,3),
+           p = c(
+                p0 ^ 3, 
+                choose(3,1) * p1 * p0 ^ 2,
+                choose(3,2) * p1 ^ 2 * p0,
+                p1 ^ 3
+                )
+           )
+```
+
