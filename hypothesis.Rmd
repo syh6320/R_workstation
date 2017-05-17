@@ -119,3 +119,6 @@ pwr.t2n.test(n1 = dim(subset(train,Age < median(Age)))[1],
              sig.level = 0.05)
 ```
 
+```{r}
+```
+
