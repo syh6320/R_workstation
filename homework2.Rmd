@@ -8,7 +8,17 @@ output: html_document
 ```{r}
 # 1st question
 power <- 0.8
-pwr.t2n.test(d = 1, sig.level = 0.05, power = 0.8)
+z_score <- qnorm(p = 1 - power)
+z_score
+n <- 2 * (z_score + 1.96) ^ 2
+n
+```
+
+```{r}
+del_se <- 1.96 - z_score
+se <- 1/del_se
+n <- 2/se ^ 2
+n
 ```
 
 ```{r}
