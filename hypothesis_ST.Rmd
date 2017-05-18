@@ -21,6 +21,8 @@ library(pwr)
 sample1 <- c(1:20)
 sample1 <- 10 * ((sample1 - mean(sample1))/sqrt(var(sample1))) + 108
 t.test(x = sample1, alternative = "less", mu = 110, conf.level = 0.99)
+qnorm(p = 0.1911)
+pnorm(q = -0.89443)
 ```
 
 ```{r}
@@ -58,6 +60,29 @@ prop.test(73, 100, p = 0.8, conf.level = 0.95,correct=FALSE)
 ```
 
 ```{r}
+prop.test(x = 75, n = 100, p = 0.8, alternative = "less", conf.level = 0.95,
+          correct = FALSE)
+```
+
+
+```{r}
+ap <- 0.75
+np <- 0.8
+n <- 100
+SE <- sqrt(np * (1 - np) / 100)
+z_score <- (ap - np) / SE
+lower_z <- qnorm(p = 0.05)
+lower_bound <- 0.8 + lower_z * SE
+upper_bound <- 1
+lower_bound
+upper_bound
+power <- pnorm(q = lower_bound, mean = ap, sd = SE)
+power
+
+pwr.p.test(h = (0.75 - 0.8), n = 100, sig.level = 0.05, alternative = "less")
+```
+
+```{r}
 prop.test(73, 100, p = 0.8, alternative = "less", 
           conf.level = 0.95,correct=FALSE)
 ```
@@ -75,6 +100,9 @@ pwr.norm.test(n = 50, d = -5, sig.level = 0.05,
 ```
 
 ```{r}
-pwr.p.test(h = (0.75 - 0.8), n = 100, sig.level = 0.05, alternative = "less")
+# 
+chisq.test(x = c(50,45,5), p = c(0.3,0.6,0.1))
 ```
+
+
 
