@@ -17,8 +17,8 @@ plot(density(norm_varibels))
 
 ```{r}
 # dnorm, pnorm, qnorm
-dnorm(x = 0.5) # give the density of x
-pnorm(q = 0) # give the CDF from minus infinit to q
+dnorm(x = 0) # give the density of x
+pnorm(q = 1, mean = 1, sd = 2) # give the CDF from minus infinit to q
 qnorm(p = 0.975) # give the z-score corrosponding to cdf p
 ```
 
