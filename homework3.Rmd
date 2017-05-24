@@ -111,28 +111,43 @@ train_no_miss$rep_yea <- 2017 - train_no_miss$YearRemodAdd
 train_no_miss$SalePrice <- log(train_no_miss$SalePrice)
 ```
 
-```{r}
-# just containing numeric columns without id
-num_col <- colnames(train_no_miss)[sapply(train_no_miss, is.numeric)]
-num_train <- subset(train_no_miss[,num_col], select = -Id)
-```
-
-```{r}
-# scale features, 
-# for purpose of comparing predection power of different features
-sp_ind <- which(colnames(num_train) == "SalePrice")
-num_train[,-sp_ind] <- sapply(num_train[,-sp_ind], scale)
-```
 
 ```{r}
 # transform categorical features into factor
+fac_col <- c("MSSubClass", "MSZoning", "Street", "LotShape", "LandContour","Utilities", "LotConfig", "LandSlope", "Neighborhood", "Condition1", "Condition2","BldgType", "HouseStyle", "OverallQual", "OverallCond", "RoofStyle", "RoofMatl","Exterior1st", "Exterior2nd", "MasVnrType", "ExterQual", "ExterCond", "Foundation","BsmtQual", "BsmtCond", "BsmtExposure", "BsmtFinType1", "BsmtFinType2", "Heating","HeatingQC", "CentralAir", "Electrical", "KitchenQual", "Functional", "PavedDrive", 
+"MoSold", "SaleType", "SaleCondition")
 
+train_no_miss[fac_col] <- sapply(train_no_miss[fac_col], as.factor)
+```
+
+
+```{r}
+# scale features
+# for purpose of comparing predection power of different features
+which(sapply(train_no_miss, is.factor))
+```
+
+
+
+```{r}
+# exclude id column
+train_no_miss <- subset(train_no_miss, select = -Id)
+```
+
+
+```{r}
+# split data into train and test
+splitdf <- funtion(data, seed){
+  set.seed(seed = seed)
+  num_data <- nrow(data)
+  x_train <- 
+}
 ```
 
 
 ```{r}
 # train a linear regression for num_train
-num_md <- lm(SalePrice ~ ., data = train_no_miss)
+simple_lm <- lm(SalePrice ~ ., data = train_no_miss)
 summary(num_md)
 ```
 ```{r}
