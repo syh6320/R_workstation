@@ -1,0 +1,225 @@
+---
+title: "homework3"
+author: "syh"
+date: "May 22, 2017"
+output: pdf_document
+---
+
+```{r}
+# get data
+raw_train <- read.csv(file = "H:/kaggle/houseprice/data/train.csv", 
+                      stringsAsFactors = FALSE)
+```
+
+```{r}
+# get hang of raw data
+str(raw_train)
+```
+
+```{r}
+# deal with NA value
+# first have a look which columns have NAs
+na_sort <- sort(sapply(raw_train, function(x){
+  sum(is.na(x))
+}), decreasing = TRUE)
+
+na_sort
+```
+
+```{r}
+# 1. just now we delete columns with too many NAs
+keep_col <- names(which(na_sort < dim(raw_train)[1] * 0.05))
+
+train_no_large_na <- raw_train[,keep_col]
+```
+
+```{r}
+# 2. find catergocial and numerical features with NA respectively.
+cat_na_col <- which(sapply(train_no_large_na, function(x){
+  sum(is.na(x)) > 0 & !is.numeric(x)
+}))
+cat_na_col
+num_na_col <- which(sapply(train_no_large_na, function(x){
+  sum(is.na(x)) > 0 & is.numeric(x)
+}))
+num_na_col
+```
+
+```{r}
+# 2. Missingness is caused by that it doesn't exsit
+train_no_large_na[is.na(train_no_large_na$BsmtExposure),cat_na_col]
+```
+
+```{r}
+train_no_large_na$BsmtExposure[which(is.na(train_no_large_na$BsmtExposure))] <- 'Unf'
+train_no_large_na$BsmtFinType1[which(is.na(train_no_large_na$BsmtFinType1))] <- 'Unf'
+train_no_large_na$BsmtFinType2[which(is.na(train_no_large_na$BsmtFinType2))] <- 'Unf'
+train_no_large_na$BsmtQual[which(is.na(train_no_large_na$BsmtQual))] <- 'Unf'
+train_no_large_na$BsmtCond[which(is.na(train_no_large_na$BsmtCond))] <- 'Unf'
+```
+
+```{r}
+with(subset(train_no_large_na, is.na(MasVnrType)), summary(MasVnrArea))
+```
+
+```{r}
+# MasVnrAreas are all na when type is na, 
+# so it doesn't exist
+train_no_large_na$MasVnrType[which(is.na(train_no_large_na$MasVnrType))] <- 'None'
+```
+
+```{r}
+# Simple missing might due to operation or data transfer, mean, median, etc
+train_no_large_na$MasVnrArea[which(is.na(train_no_large_na$MasVnrArea))] <- mean(train_no_large_na$MasVnrArea, na.rm = TRUE)
+
+train_no_large_na$MasVnrArea[which(train_no_large_na$MasVnrType == "None")] <- 0
+```
+
+```{r}
+#
+train_no_large_na$Electrical[is.na(train_no_large_na$Electrical)] <- "SBrkr"
+barplot(table(train_no_large_na$Electrical))
+```
+
+
+```{r}
+
+train_no_miss <- train_no_large_na
+# record this train data set
+write.csv(file = "H:/kaggle/houseprice/data/train_no_missing.csv", x = train_no_miss)
+
+```
+
+```{r}
+# adding new features, feature engineering
+# how many years are these houses
+train_no_miss$Age <- 2017 - train_no_miss[,"YearBuilt"]
+
+# total Floor square feet + basement
+train_no_miss$tot_Flo_area <- train_no_miss$X1stFlrSF 
+                + train_no_miss$X2ndFlrSF 
+                + train_no_miss$TotalBsmtSF
+
+# how many years house last since repairing
+train_no_miss$rep_yea <- 2017 - train_no_miss$YearRemodAdd
+```
+
+
+```{r}
+#transform sale price to more normal, 
+# in order to subject to assumptin of linear regression
+train_no_miss$SalePrice <- log(train_no_miss$SalePrice)
+```
+
+```{r}
+# just containing numeric columns without id
+num_col <- colnames(train_no_miss)[sapply(train_no_miss, is.numeric)]
+num_train <- subset(train_no_miss[,num_col], select = -Id)
+```
+
+```{r}
+# scale features, 
+# for purpose of comparing predection power of different features
+sp_ind <- which(colnames(num_train) == "SalePrice")
+num_train[,-sp_ind] <- sapply(num_train[,-sp_ind], scale)
+```
+
+```{r}
+# transform categorical features into factor
+
+```
+
+
+```{r}
+# train a linear regression for num_train
+num_md <- lm(SalePrice ~ ., data = train_no_miss)
+summary(num_md)
+```
+```{r}
+# identify features with high contribution to prediction.
+which(abs(coef(num_md)) >= median(coef(num_md), na.rm = TRUE))
+```
+
+```{r}
+# compare with correlation
+# we can see that result of correlation is pretty similar with linear regression
+library(corrplot)
+correlation <- cor(x = num_train)
+row_ind <- which(apply(correlation, 1, function(x){
+  sum(abs(x) > 0.5 & x != 1) > 1
+}))
+corrplot(correlation[row_ind,row_ind], method = "square")
+```
+
+```{r}
+# residual plot
+# 1st: residual is unbais and homoscedastic, 
+# 2nd: basically, residual is subject to normal distribution which means variacne of error is constant.
+# 4th: we know some outlier: 524, 633,1299, 1424
+plot(num_md)
+# we can draw conclusion that basically data set is subject to linear
+```
+
+```{r}
+num_train_no_out <- num_train[-c(524,633,1299,1424),]
+num_no_out_md <- lm(SalePrice ~ ., data = num_train_no_out)
+summary(num_no_out_md)
+plot(num_no_out_md)
+# we see that R-square and F-statistic increase
+# median of residual increase, too
+# but range of residual decreases
+# the model is better. 
+```
+
+```{r}
+# identify if there is some correlation between features
+# according to correlation plot, we assume that 
+# overallqua ~ yearBuilt, totalBsmtsf + GrLiveArea + GarageArea
+summary(lm(OverallQual ~ OverallCond, data = num_train_no_out))
+```
+
+```{r}
+# VIF
+vif <- 1/(1 - 0.00814)
+vif
+```
+
+
+```{r}
+# resolve multicolinearity and select lamda
+library(glmnet)
+sp_ind <- which(colnames(train_no_miss) == "SalePrice")
+
+ind <- model.matrix( ~.,subset(train_no_miss, select = c(-SalePrice, -Id)))
+dep <- train_no_miss$SalePrice
+fit <- glmnet(x = ind, y = dep)
+```
+
+```{r}
+plot(fit)
+```
+
+```{r}
+plot(fit, xvar = "lambda", label = T)
+```
+
+```{r}
+print(fit)
+```
+
+```{r}
+cvfit <- cv.glmnet(x = ind, y = dep)
+plot(cvfit)
+```
+
+```{r}
+cvfit$lambda.min
+cvfit$lambda.1se
+# cvfit$lambda
+```
+
+```{r}
+coef(cvfit,s = "lambda.min")
+coef(cvfit,s = "lambda.1se")
+```
+

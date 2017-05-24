@@ -1,0 +1,180 @@
+---
+title: "liearRegression"
+author: "syh"
+date: "May 21, 2017"
+output: pdf_document
+---
+
+```{r}
+train <- read.csv(file = "H:/kaggle/houseprice/data/train.csv", stringsAsFactors = FALSE)
+```
+
+```{r}
+# building a sample of linear regression
+# for example, we choose feature X1stFlrSF
+# class(train$X1stFlrSF)
+plot(density(train$X1stFlrSF))
+plot(density(log(train$SalePrice)))
+```
+
+```{r}
+# 
+plot(x = train$X1stFlrSF, y = train$SalePrice)
+# we found that the variance grows as x grows, which isn't consist with our assumption that var[error|X = x] is constant whatever x
+
+plot(x = train$X1stFlrSF, y = log(train$SalePrice))
+# it seems that log sale prices have no trend as above
+```
+
+```{r}
+# create a new feature
+train$LogPrice <- log(train$SalePrice)
+```
+
+```{r}
+# build a sample linear regression model
+md1 <- lm(LogPrice ~ X1stFlrSF, data = train)
+summary(md1)
+```
+
+```{r}
+# build a sample multiply linear regression
+# select a subset of train
+train_subset <- train[, c("TotalBsmtSF", "BsmtFinSF1", "BsmtFinSF2", 
+                          "X1stFlrSF", "X2ndFlrSF", "WoodDeckSF", "OpenPorchSF",                            "LowQualFinSF", "LogPrice")
+                      ]
+md2 <- lm(LogPrice ~ ., data = train_subset)
+```
+
+
+```{r}
+summary(md2)
+```
+
+```{r}
+# scale features for comparing prediction power of different features
+train_subset[,-9] <- sapply(subset(train_subset, select = -LogPrice), scale)
+```
+
+```{r}
+summary(train_subset)
+sapply(train_subset, sd)
+```
+
+```{r}
+md2_sta <- lm(LogPrice ~ ., data = train_subset)
+summary(md2_sta)
+```
+
+```{r}
+# we can use form of matrix to compute coefficient
+# B = (x_t * x)^-1 * x_t * Y
+x <- as.matrix(train_subset[, -9])
+y <- as.matrix(train_subset[,"LogPrice"])
+b <- solve(t(x) %*% x) %*% t(x) %*% y
+b
+```
+
+```{r}
+md2_sta$residuals
+md2_sta$coefficients
+```
+
+
+```{r}
+# check if residual is unbaised adn homoscedastic
+plot(md2_sta$fitted.values, md2_sta$residuals, xlab = "fitted", ylab = "residual")
+```
+
+```{r}
+# have a look at data point with extrem residual
+train_subset[which.min(md2_sta$residuals),]
+summary(train_subset[-1299,])
+```
+
+```{r}
+# as for this kind of data point, deleting them or not depends on situation.
+```
+
+```{r}
+# auto-plot linear regression model
+plot(md2_sta)
+```
+
+```{r}
+# identify colinearity & multi-colinearity
+n <- 100
+set.seed(1)
+x1 <- rnorm(n)
+x2 <- rnorm(n)
+x3 <- rnorm(n)
+
+betas <- sapply(1:1000, function(i){
+  y <- x1 + rnorm(n = 100, sd = 0.3)
+  c(coef(lm(y ~ x1))[2], coef(lm(y ~ x1 + x2))[2], coef(lm(y ~ x1 + x2 + x3))[2])
+})
+
+```
+
+```{r}
+# sd(x1)
+# sd(x2)
+# sd(x3)
+round(apply(betas, 1, sd),5)
+round(apply(betas, 1, mean),5)
+```
+
+
+```{r}
+# 
+set.seed(1)
+x1 <- rnorm(n)
+x2 <- x1/sqrt(2) + rnorm(n)/sqrt(2)
+x3 <- x1 * 0.95 + rnorm(n) * sqrt(1 - 0.95^2)
+
+# sd(x1)
+# sd(x2)
+# sd(x3)
+
+betas <- sapply(1:1000, function(i){
+  y <- x1 + rnorm(n = 100, sd = 0.3)
+  c(coef(lm(y ~ x1))[2], coef(lm(y ~ x1 + x2))[2], coef(lm(y ~ x1 + x2 + x3))[2])
+})
+
+```
+
+```{r}
+round(apply(betas, 1, sd),5)
+round(apply(betas, 1, mean),5)
+```
+
+```{r}
+# from compasion above, we can draw conclusion that adding correlated features will make variance of coefficience inflated.
+```
+
+```{r}
+# identify colinearity
+md3 <- lm(x1 ~ x2 + x3)
+summary(md3)
+Vif <- 1/(1 - 0.8916) # vif equals 1/(1 - R square)
+Vif # means that how many times cofficient of x1 can be inflated
+```
+
+```{r}
+# resolve colinearity by elastic net, penality
+# using glmnet, X should be a matrix and can't contain NA
+library(glmnet)
+missing_col <- which(sapply(train, function(x){
+  length(which(is.na(x))) > 0 
+}))
+
+dep <- train$LogPrice
+ind <- model.matrix(~., train[,-c(missing_col, 81, 82, 1)]) # exclude saleprice, id
+fit <- glmnet(x = ind, y = dep)
+plot(fit)
+```
+
+```{r}
+plot(fit, label = T)
+```
+
