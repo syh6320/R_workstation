@@ -59,7 +59,7 @@ train_no_large_na$BsmtCond[which(is.na(train_no_large_na$BsmtCond))] <- 'Unf'
 ```
 
 ```{r}
-with(subset(train_no_large_na, is.na(MasVnrType)), summary(MasVnrArea))
+with(subset(train_no_large_na, subset = is.na(MasVnrType)), summary(MasVnrArea))
 ```
 
 ```{r}
@@ -71,24 +71,37 @@ train_no_large_na$MasVnrType[which(is.na(train_no_large_na$MasVnrType))] <- 'Non
 ```{r}
 # Simple missing might due to operation or data transfer, mean, median, etc
 train_no_large_na$MasVnrArea[which(is.na(train_no_large_na$MasVnrArea))] <- mean(train_no_large_na$MasVnrArea, na.rm = TRUE)
-
+# area is set 0 where type is None
 train_no_large_na$MasVnrArea[which(train_no_large_na$MasVnrType == "None")] <- 0
 ```
 
 ```{r}
-#
+# for exectrical, this is only one missing value
+# so we use most frequent value in this column to impute it.
 train_no_large_na$Electrical[is.na(train_no_large_na$Electrical)] <- "SBrkr"
 barplot(table(train_no_large_na$Electrical))
+```
+
+```{r}
+# check again if there is no missing value
+sort(sapply(train_no_large_na, function(x){sum(is.na(x))}), decreasing = TRUE)
+# there isn't missing value any more.
 ```
 
 
 ```{r}
 
-train_no_miss <- train_no_large_na
+# train_no_miss <- train_no_large_na
 # record this train data set
-write.csv(file = "H:/kaggle/houseprice/data/train_no_missing.csv", x = train_no_miss)
+write.csv(file = "H:/kaggle/houseprice/data/train_no_missing.csv", x = train_no_large_na)
 
 ```
+
+```{r}
+#create whole train data without id
+whole_train <- subset(train_no_large_na, select = -Id)
+```
+
 
 ```{r}
 # adding new features, feature engineering
@@ -106,9 +119,30 @@ train_no_miss$rep_yea <- 2017 - train_no_miss$YearRemodAdd
 
 
 ```{r}
-#transform sale price to more normal, 
+# transform sale price to more normal, 
 # in order to subject to assumptin of linear regression
-train_no_miss$SalePrice <- log(train_no_miss$SalePrice)
+whole_train$SalePrice <- log(whole_train$SalePrice)
+```
+
+
+```{r}
+# train a simple linear regression model first
+simple_lm <- lm(SalePrice ~ ., data = whole_train)
+summary(simple_lm)
+```
+
+```{r}
+# residual plot
+# 1st: residual is unbais and homoscedastic, 
+# 2nd: basically, residual is subject to normal distribution which means variacne of error is constant.
+# 4th: we know some outlier: 633, 826, 524 high leaverage and high residual
+plot(simple_lm)
+```
+
+```{r}
+# we can draw conclusion that basically underlying relations is linear
+# Adjusted R-squared:  0.9358, it seems it's pretty good.
+# F-statistic: 93.07, it's not very high, though.
 ```
 
 
@@ -117,124 +151,105 @@ train_no_miss$SalePrice <- log(train_no_miss$SalePrice)
 fac_col <- c("MSSubClass", "MSZoning", "Street", "LotShape", "LandContour","Utilities", "LotConfig", "LandSlope", "Neighborhood", "Condition1", "Condition2","BldgType", "HouseStyle", "OverallQual", "OverallCond", "RoofStyle", "RoofMatl","Exterior1st", "Exterior2nd", "MasVnrType", "ExterQual", "ExterCond", "Foundation","BsmtQual", "BsmtCond", "BsmtExposure", "BsmtFinType1", "BsmtFinType2", "Heating","HeatingQC", "CentralAir", "Electrical", "KitchenQual", "Functional", "PavedDrive", 
 "MoSold", "SaleType", "SaleCondition")
 
-train_no_miss[fac_col] <- sapply(train_no_miss[fac_col], as.factor)
+whole_train[fac_col] <- sapply(whole_train[fac_col], as.factor)
 ```
 
 
 ```{r}
-# scale features
+# scale numerical features
 # for purpose of comparing predection power of different features
-which(sapply(train_no_miss, is.factor))
+num_col <- setdiff(colnames(whole_train),fac_col)
+whole_train[setdiff(num_col,"SalePrice")] <- sapply(whole_train[setdiff(num_col,"SalePrice")], scale)
+```
+
+
+```{r}
+# split data into train(0.7) and test(0.3)
+dep_data <- whole_train$SalePrice
+# x must be a matrix for glmnet
+ind_data <- model.matrix(~., subset(whole_train, select = -SalePrice))
+
+set.seed(1000)
+train_ind <- sample(x = 1:dim(whole_train)[1], size = dim(whole_train)[1] * 0.7)
+
+x_train <- ind_data[train_ind,]
+y_train <- dep_data[train_ind]
+
+x_test <- ind_data[-train_ind,]
+y_test <- dep_data[-train_ind]
 ```
 
 
 
 ```{r}
-# exclude id column
-train_no_miss <- subset(train_no_miss, select = -Id)
+# resolve multicolinearity and select lamda
+# we choose different penality methods
+library(glmnet)
+lasso_lm <- glmnet(x = x_train, y = y_train, alpha = 1)
+ridge_lm <- glmnet(x = x_train, y = y_train, alpha = 0)
+elnet_lm <- glmnet(x = x_train, y = y_train, alpha = 0.5)
 ```
 
-
 ```{r}
-# split data into train and test
-splitdf <- funtion(data, seed){
-  set.seed(seed = seed)
-  num_data <- nrow(data)
-  x_train <- 
+for(i in c(0:10)){
+  assign(paste("cvglm", i,sep = ""), 
+         cv.glmnet(x = x_test, y = y_test, alpha = i/10,
+                  type.measure = "mse", family = "gaussian"))
 }
 ```
 
 
 ```{r}
-# train a linear regression for num_train
-simple_lm <- lm(SalePrice ~ ., data = train_no_miss)
-summary(num_md)
-```
-```{r}
-# identify features with high contribution to prediction.
-which(abs(coef(num_md)) >= median(coef(num_md), na.rm = TRUE))
-```
+par(mfrow=c(1,2))
+plot(lasso_lm, xvar = "lambda", label = T)
+plot(cvglm10)
 
-```{r}
-# compare with correlation
-# we can see that result of correlation is pretty similar with linear regression
-library(corrplot)
-correlation <- cor(x = num_train)
-row_ind <- which(apply(correlation, 1, function(x){
-  sum(abs(x) > 0.5 & x != 1) > 1
-}))
-corrplot(correlation[row_ind,row_ind], method = "square")
-```
-
-```{r}
-# residual plot
-# 1st: residual is unbais and homoscedastic, 
-# 2nd: basically, residual is subject to normal distribution which means variacne of error is constant.
-# 4th: we know some outlier: 524, 633,1299, 1424
-plot(num_md)
-# we can draw conclusion that basically data set is subject to linear
-```
-
-```{r}
-num_train_no_out <- num_train[-c(524,633,1299,1424),]
-num_no_out_md <- lm(SalePrice ~ ., data = num_train_no_out)
-summary(num_no_out_md)
-plot(num_no_out_md)
-# we see that R-square and F-statistic increase
-# median of residual increase, too
-# but range of residual decreases
-# the model is better. 
-```
-
-```{r}
-# identify if there is some correlation between features
-# according to correlation plot, we assume that 
-# overallqua ~ yearBuilt, totalBsmtsf + GrLiveArea + GarageArea
-summary(lm(OverallQual ~ OverallCond, data = num_train_no_out))
-```
-
-```{r}
-# VIF
-vif <- 1/(1 - 0.00814)
-vif
 ```
 
 
 ```{r}
-# resolve multicolinearity and select lamda
-library(glmnet)
-sp_ind <- which(colnames(train_no_miss) == "SalePrice")
+# let calculate the mse of these three models
+lasso_y <- predict.glmnet(object = lasso_lm, newx = x_test, s = cvglm10$lambda.1se)
+mean((y_test - lasso_y)^2)
+```
 
-ind <- model.matrix( ~.,subset(train_no_miss, select = c(-SalePrice, -Id)))
-dep <- train_no_miss$SalePrice
-fit <- glmnet(x = ind, y = dep)
+
+```{r}
+par(mfrow=c(1,2))
+plot(ridge_lm, xvar = "lambda", label = T)
+plot(cvglm0)
 ```
 
 ```{r}
-plot(fit)
+ridge_y <- predict.glmnet(object = ridge_lm, newx = x_test, s = cvglm0$lambda.1se)
+mean((y_test - ridge_y)^2)
+```
+
+
+```{r}
+elnet_y <- predict.glmnet(object = elnet_lm, newx = x_test, s = cvglm5$lambda.1se)
+mean((y_test - elnet_y)^2)
+```
+
+
+```{r}
+cvglm <- list(cvglm0,cvglm1,cvglm2,cvglm3,cvglm4,cvglm5,
+           cvglm6,cvglm7,cvglm8,cvglm9,cvglm10
+           )
+mse <- NULL
+for(i in c(1:11)){
+  y_pre <- predict.cv.glmnet(object = cvglm[[i]],newx = x_test,
+                             s = cvglm[[i]]$lambda.1se)
+  mse <- c(mse, mean((y_test - y_pre)^2))
+}
 ```
 
 ```{r}
-plot(fit, xvar = "lambda", label = T)
+plot(x = c(0:10), y = mse, xlab = "alpha", ylab = "mse")
 ```
 
 ```{r}
-print(fit)
+which.min(mse) - 1
 ```
 
-```{r}
-cvfit <- cv.glmnet(x = ind, y = dep)
-plot(cvfit)
-```
-
-```{r}
-cvfit$lambda.min
-cvfit$lambda.1se
-# cvfit$lambda
-```
-
-```{r}
-coef(cvfit,s = "lambda.min")
-coef(cvfit,s = "lambda.1se")
-```
 
