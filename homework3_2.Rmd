@@ -14,12 +14,18 @@ output: pdf_document
 # get data
 raw_train <- read.csv(file = "H:/kaggle/houseprice/data/train.csv",
                       stringsAsFactors = FALSE)
+
+raw_test <- read.csv(file = "H:/kaggle/houseprice/data/test.csv", stringsAsFactors = F)
+
+raw_test$SalePrice <- rep(0,dim(raw_test)[1])
+
+all_data <- rbind(raw_train, raw_test)
 ```
 
 ```{r}
 # deal with NA value
 # first have a look which columns have NAs
-na_sort <- sapply(raw_train, function(x){
+na_sort <- sapply(all_data, function(x){
   sum(is.na(x))
 })
 
@@ -27,15 +33,14 @@ na_sort
 ```
 ```{r}
 # at first we remove columns with na in excess of 5% of all
-keep_col <- which(na_sort < dim(raw_train)[1] * 0.05)
+keep_col <- which(na_sort < dim(all_data)[1] * 0.05)
+all_data <- all_data[keep_col]
 ```
 
-```{r}
-raw_train <- raw_train[keep_col]
-```
 
 ```{r}
-sort(sapply(raw_train, function(x){
+# check other columns with NAs
+sort(sapply(all_data, function(x){
   sum(is.na(x))
 }), decreasing = TRUE)
 ```
@@ -43,72 +48,83 @@ sort(sapply(raw_train, function(x){
 
 ```{r}
 # 2. Missingness is caused by that it doesn't exsit
+# by mice, to impute them.
 library(mice)
 # md.pattern(raw_train)
 ```
+
 
 ```{r}
 # convert character to factor
 cha_col <- c("MSSubClass", "MSZoning", "Street", "LotShape", "LandContour",
             "Utilities", "LotConfig", "LandSlope", "Neighborhood", "Condition1", "Condition2","BldgType", "HouseStyle", "OverallQual", "OverallCond", "RoofStyle", "RoofMatl","Exterior1st", "Exterior2nd", "MasVnrType", "ExterQual", "ExterCond", "Foundation","BsmtQual", "BsmtCond", "BsmtExposure", "BsmtFinType1", "BsmtFinType2", "Heating","HeatingQC", "CentralAir", "Electrical", "KitchenQual", "Functional", 
 "PavedDrive", "MoSold", "SaleType", "SaleCondition")
-raw_train[cha_col] <- lapply(raw_train[cha_col], as.factor)
+all_data[cha_col] <- lapply(all_data[cha_col], as.factor)
 ```
 
+```{r}
+# str(all_data)
+# summary(all_data)
+```
 
 ```{r}
 # impute nas by mice
-im_raw_train <- mice(data = raw_train, m = 1, method = "cart",printFlag = F)
-whole_train <- complete(im_raw_train)
+im_all_data <- mice(data = all_data, m = 1, method = "cart",printFlag = F)
+real_all_data <- complete(im_all_data)
 ```
 
 
 ```{r}
 # check again if there is no missing value
-sort(sapply(whole_train, function(x){sum(is.na(x))}), decreasing = TRUE)
+sort(sapply(real_all_data, function(x){sum(is.na(x))}), decreasing = TRUE)
 # there isn't missing value any more.
 ```
 
 
 ```{r}
 
-# train_no_miss <- train_no_large_na
-# record this train data set
-write.csv(file = "H:/kaggle/houseprice/data/train_no_missing_mice.csv", x = whole_train)
+# record real_all_data data set
+write.csv(file = "H:/kaggle/houseprice/data/real_all_data_mice.csv", x = real_all_data)
 
 ```
 
 ```{r}
-#create whole train data without id
-whole_train <- subset(whole_train, select = -Id)
+#create real_all_data without id
+real_all_data <- subset(real_all_data, select = -Id)
 ```
 
 
 ```{r}
-# adding new features, feature engineering
+# feature engineering
 # how many years are these houses
-train_no_miss$Age <- 2017 - train_no_miss[,"YearBuilt"]
+# train_no_miss$Age <- 2017 - train_no_miss[,"YearBuilt"]
 
 # total Floor square feet + basement
-train_no_miss$tot_Flo_area <- train_no_miss$X1stFlrSF 
-                + train_no_miss$X2ndFlrSF 
-                + train_no_miss$TotalBsmtSF
+# train_no_miss$tot_Flo_area <- train_no_miss$X1stFlrSF 
+                # + train_no_miss$X2ndFlrSF 
+                # + train_no_miss$TotalBsmtSF
 
 # how many years house last since repairing
-train_no_miss$rep_yea <- 2017 - train_no_miss$YearRemodAdd
+# train_no_miss$rep_yea <- 2017 - train_no_miss$YearRemodAdd
 ```
 
 
 ```{r}
 # transform sale price to more normal, 
 # in order to subject to assumptin of linear regression
-whole_train$SalePrice <- log(whole_train$SalePrice)
+real_all_data$SalePrice <- log(real_all_data$SalePrice)
 ```
+
+```{r}
+# plot(density(whole_train$SalePrice))
+```
+
 
 
 ```{r}
 # train a simple linear regression model first
-simple_lm <- lm(SalePrice ~ ., data = whole_train)
+simple_lm <- lm(SalePrice ~ ., data = real_all_data[c(1:1460),])
+                
 summary(simple_lm)
 ```
 
@@ -117,9 +133,10 @@ summary(simple_lm)
 # residual plot
 # 1st: residual is unbais and homoscedastic, 
 # 2nd: basically, residual is subject to normal distribution which means variacne of error is constant.
-# 4th: we know some outlier: 633, 826, 524 high leaverage and high residual
+# 4th: we know some outlier: 89, 826, 524 high leaverage and high residual
 plot(simple_lm)
 ```
+
 
 ```{r}
 # we can draw conclusion that basically underlying relations is linear
@@ -131,28 +148,38 @@ plot(simple_lm)
 ```{r}
 # scale numerical features
 # for purpose of comparing predection power of different features
-num_col <- setdiff(colnames(whole_train),cha_col)
-whole_train[setdiff(num_col,"SalePrice")] <- sapply(whole_train[setdiff(num_col,"SalePrice")], scale)
+# num_col <- setdiff(colnames(whole_train),cha_col)
+# whole_train[setdiff(num_col,"SalePrice")] <- sapply(whole_train[setdiff(num_col,"SalePrice")], scale)
 ```
 
 
 ```{r}
-# split data into train(0.7) and test(0.3)
-dep_data <- whole_train$SalePrice
+
+# get ind and dep data
+dep_data <- real_all_data$SalePrice
 # x must be a matrix for glmnet
-ind_data <- model.matrix(~., subset(whole_train, select = -SalePrice))
+ind_data <- model.matrix(~., subset(real_all_data, select = -SalePrice))
 
+
+# split all data into for training model and for prediction
+x_model <- ind_data[c(1:dim(raw_train)[1]),]
+y_model <- dep_data[c(1:dim(raw_train)[1])]
+  
+
+x_pre <- ind_data[-c(1:dim(raw_train)[1]),]
+
+# split training data into train and test
 set.seed(1000)
-train_ind <- sample(x = 1:dim(whole_train)[1], size = dim(whole_train)[1] * 0.7)
+train_ind <- sample(x = 1:dim(x_model)[1], size = dim(x_model)[1] * 0.7)
 
-x_train <- ind_data[train_ind,]
-y_train <- dep_data[train_ind]
+x_train <- x_model[train_ind,]
+y_train <- y_model[train_ind]
 
-x_test <- ind_data[-train_ind,]
-y_test <- dep_data[-train_ind]
+x_test <- x_model[-train_ind,]
+y_test <- y_model[-train_ind]
+
 
 ```
-
 
 
 ```{r}
@@ -165,6 +192,8 @@ elnet_lm <- glmnet(x = x_train, y = y_train, alpha = 0.5)
 ```
 
 ```{r}
+# train 11 models with different alpha, different penalty, ranging from 0 to 1
+# by cross validation,default folders are 10
 for(i in c(0:10)){
   assign(paste("cvglm", i,sep = ""), 
          cv.glmnet(x = x_test, y = y_test, alpha = i/10,
@@ -212,6 +241,7 @@ mean((y_test - elnet_y)^2)
 
 
 ```{r}
+# let choose the optimal lambda from elastic models
 cvglm <- list(cvglm0,cvglm1,cvglm2,cvglm3,cvglm4,cvglm5,
            cvglm6,cvglm7,cvglm8,cvglm9,cvglm10
            )
@@ -228,72 +258,31 @@ plot(x = c(0:10), y = mse, xlab = "alpha", ylab = "mse")
 ```
 
 ```{r}
+# print the model's index with optimal lambda
 which.min(mse) - 1
 ```
 
 ```{r}
 # we got different model from hoemwork3_1
 # use this one on test data
-test <- read.csv(file = "H:/kaggle/houseprice/data/test.csv", stringsAsFactors = F)
+
+```
+
+```{r}
+# use prediction on test data using our optimal model
+pre_pri <- predict.cv.glmnet(object = cvglm5, newx = x_pre, 
+                             s = cvglm5$lambda.1se)
 ```
 
 
 ```{r}
-# select same columns as train_data
-test <- test[setdiff(colnames(raw_train),c("SalePrice","Id"))]
+result <- data.frame(Id = raw_test$Id, SalePrice = exp(pre_pri))
+names(result) <- c("Id", "SalePrice")
 ```
 
 ```{r}
-sort(sapply(test, function(x){sum(is.na(x))}))
-```
-
-
-```{r}
-# test[which(is.na(test$Utilities)),"Utilities"] <- "NoSeWa"
-```
-
-```{r}
-# convert to factor
-test[cha_col] <- lapply(test[cha_col], as.factor)
-```
-
-```{r}
-sort(sapply(test, function(x){sum(is.na(x))}), decreasing = TRUE)
-```
-
-
-```{r}
-# deal with missing value
-im_test <- mice(data = test,m = 1,method = "cart")
-# real_test <- complete(x = im_test)
-```
-
-
-```{r}
-# check again
-sort(sapply(real_test, function(x){sum(is.na(x))}), decreasing = TRUE)
-```
-
-
-```{r}
-# ??
-real_test[which(is.na(real_test$Utilities)),"Utilities"] = real_test[1,"Utilities"]
-```
-
-
-```{r}
-# convert to matrix
-x_real_test <- model.matrix(~., data = real_test)
-```
-
-
-```{r}
-pre_salePrice <- predict.cv.glmnet(object = cvglm5,
-                                   newx = real_test,s = cvglm5$lambda.1se
-                                   )
-```
-
-```{r}
-result <- data.frame(Id = real_test$Id, SalePrice = exp(pre_salePrice))
+# write result back to csv
+write.csv(x = result, file = "H:/kaggle/houseprice/data/submission.csv",
+          row.names = FALSE)
 ```
 
