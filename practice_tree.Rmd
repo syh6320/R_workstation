@@ -1,0 +1,135 @@
+---
+title: "practice_tree"
+author: "syh"
+date: "May 29, 2017"
+output: pdf_document
+---
+
+```{r}
+# this file contains data for training and prediction
+# No missing value, id
+data <- read.csv(file = "H:/kaggle/houseprice/data/real_all_data_hybrid.csv", 
+                 stringsAsFactors = FALSE,
+                 row.names = NULL)[1:1460,-c(1,2)]
+
+```
+
+```{r}
+# split data into train and test
+set.seed(1)
+train_ind <- sample(1:dim(data)[1], size = dim(data)[1] * 0.7)
+train_data <- data[train_ind,]
+test_data <- data[-train_ind,]
+```
+
+```{r}
+# building a decision tree by rpart
+library(rpart)
+formula <- "log(SalePrice) ~. - SalePrice"
+```
+
+```{r}
+# for regression y, we use method = "anova"; 
+# for regression y, we use method = 'class' for classification
+
+# by control, we can control the split process.
+# one of most import parameter is cp, complexity parameter.
+
+set.seed(2)
+deep_tree <- rpart(formula = formula, data = train_data,method = "anova",
+                   control = rpart.control(cp = 0))
+```
+
+```{r}
+# have a look at theis tree
+# split: split function
+# deviance: sum square error(SSE) of response variable through this split point
+# we hope deviance becomes more and more less
+# yval: mean of data through this split point
+deep_tree
+```
+
+```{r}
+set.seed(3)
+shallow_tree <- rpart(formula = formula, data = train_data, method = "anova",
+                      control = rpart.control(cp = 1))
+shallow_tree
+```
+
+```{r}
+# # get deeper insight of deep_tree
+printcp(deep_tree)
+# rel error:sum of squared over all leaf nodes of train data / sum of squared at root node
+# xerror: sum of squared over all leaf nodes of left over data / sum of squared at root node
+# xstd: stadard deviation of xerrors
+# x means cross validation
+```
+
+
+```{r}
+# get deeper insight of deep_tree
+# plotcp give visualization of cross validation of result in rpart
+plotcp(deep_tree)
+```
+
+```{r}
+# we would like to find an optimal cp
+# first we find a cp with minimum xerror
+min_xerror_cp <- deep_tree$cptable[which.min(deep_tree$cptable[,"xerror"]),"CP"]
+min_xerror_cp
+```
+
+
+
+```{r}
+# Just as regulization in linear regression
+# we would like to select cp such that difference between relative minimum xerror and minimm xerror is within 1std
+cp_table <- as.data.frame(deep_tree$cptable)
+opt_cp <- cp_table$CP[with(cp_table, min(which(xerror - xstd < min(xerror))))]
+opt_cp
+```
+
+```{r}
+# prune(select) optimal tree with optimal cp
+opt_tree <- prune(tree = deep_tree, cp = opt_cp)
+opt_tree
+```
+
+```{r}
+# plot(opt_tree, uniform = TRUE)
+# text(opt_tree,use.n = TRUE, cex = 0.5)
+library(rpart.plot)
+prp(opt_tree, faclen = 0,cex = 0.5)
+```
+
+```{r}
+# make prediction on test data
+pre_salePrice <- predict(object = opt_tree, newdata = test_data)
+```
+
+
+```{r}
+# we find new level in test data
+# and impute them as NAs
+for(i in 1:dim(train_data)[2]) {
+  if(is.character(train_data[, i]) & 
+     length(which(!unique(test_data[, i]) %in% unique(train_data[, i]))) > 0) {
+    test_data[which(!test_data[,i] %in% train_data[,i]),i] <- NA
+    # print(paste("this column: ", colnames(train_data)[i], "has new levels in test"))
+  } 
+}
+```
+
+```{r}
+# make prediction again
+pre_salePrice <- predict(object = opt_tree, newdata = test_data)
+sum((pre_salePrice - log(test_data$SalePrice))^2)
+```
+
+```{r}
+# in rpart
+# we don't have to convert categorical variables to factors.
+# we don't have to concern about NAs 
+```
+
+

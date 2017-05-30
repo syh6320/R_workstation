@@ -191,6 +191,7 @@ ridge_lm <- glmnet(x = x_train, y = y_train, alpha = 0)
 elnet_lm <- glmnet(x = x_train, y = y_train, alpha = 0.5)
 ```
 
+
 ```{r}
 # train 11 models with different alpha, different penalty, ranging from 0 to 1
 # by cross validation,default folders are 10
@@ -236,7 +237,8 @@ mean((y_test - elnet_y)^2)
 ```
 
 ```{r}
-# it seems that performance of elastic net is best
+# it seems that performance of ridge is best
+# let's check if there is other elastic net that out-performs it.
 ```
 
 
@@ -260,6 +262,7 @@ plot(x = c(0:10), y = mse, xlab = "alpha", ylab = "mse")
 ```{r}
 # print the model's index with optimal lambda
 which.min(mse) - 1
+min(mse)
 ```
 
 ```{r}
@@ -282,7 +285,7 @@ names(result) <- c("Id", "SalePrice")
 
 ```{r}
 # write result back to csv
-write.csv(x = result, file = "H:/kaggle/houseprice/data/submission.csv",
+write.csv(x = result, file = "H:/kaggle/houseprice/data/submission_2.csv",
           row.names = FALSE)
 ```
 
