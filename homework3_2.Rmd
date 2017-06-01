@@ -191,6 +191,11 @@ ridge_lm <- glmnet(x = x_train, y = y_train, alpha = 0)
 elnet_lm <- glmnet(x = x_train, y = y_train, alpha = 0.5)
 ```
 
+```{r}
+print(lasso_lm)
+```
+
+
 
 ```{r}
 # train 11 models with different alpha, different penalty, ranging from 0 to 1

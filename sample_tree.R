@@ -68,7 +68,7 @@ sum((test.pred - log(test.data$SalePrice))^2) #17.7
 # plot tree
 plot(tree.pruned)
 # no uniform, the length of branch indicates decrease of deviance
-plot(tree.pruned, uniform = TRUE) 
+plot(tree.pruned, uniform = TRUE)
 # Since labels often extend outside the plot region it can be helpful to specify xpd = TRUE
 text(tree.pruned, cex = 0.5, use.n = TRUE, xpd = TRUE)
 # They can be quite ugly and hard to read, especially when you 
@@ -194,6 +194,7 @@ par <- list( max_depth = 8,
              objective = "reg:linear",
              nthread = 3,
              verbose = 2)
+
 gbt.cv <- xgb.cv(params = par,
                  data = feature.matrix, label = train.label,
                  nfold = 5, nrounds = 100)
@@ -211,6 +212,8 @@ gbt <- xgboost(data = feature.matrix,
                nround = nround,
                params = par)
 
+# we also would like to choose a relative simple tree that test error is within 1std of minimum test error
+
 # grid searching for parameters.
 all_param = NULL
 all_test_rmse = NULL
@@ -219,7 +222,7 @@ all_train_rmse = NULL
 for (iter in 1:20) {
   param <- list(objective = "reg:linear",
                 max_depth = sample(5:12, 1)
-                #   eta = runif(1, .01, .3)
+                #  eta = runif(1, .01, .3)
                 #  gamma = runif(1, 0.0, 0.2), 
                 #  subsample = runif(1, .6, .9),
                 #  colsample_bytree = runif(1, .5, .8), 

@@ -44,13 +44,14 @@ deep_tree <- rpart(formula = formula, data = train_data,method = "anova",
 # have a look at theis tree
 # split: split function
 # deviance: sum square error(SSE) of response variable through this split point
-# we hope deviance becomes more and more less
-# yval: mean of data through this split point
+# we hope deviance becomes less and less
+# yval: mean of the response variable for all observations assigned to this node. If this value is followed by an asterisk, *, then the node is also a terminal node (leaf).
+# At each stage of the tree we can sum the deviances at all the terminal nodes and compare it to the deviance at the root node to obtain an R2
 deep_tree
 ```
 
 ```{r}
-set.seed(3)
+set.seed(3) # Because the cross-validation error results are random
 shallow_tree <- rpart(formula = formula, data = train_data, method = "anova",
                       control = rpart.control(cp = 1))
 shallow_tree
@@ -64,6 +65,11 @@ printcp(deep_tree)
 # xstd: stadard deviation of xerrors
 # x means cross validation
 ```
+
+```{r}
+
+```
+
 
 
 ```{r}
@@ -94,6 +100,29 @@ opt_cp
 opt_tree <- prune(tree = deep_tree, cp = opt_cp)
 opt_tree
 ```
+
+```{r}
+# The $where component indicates to which leaf in the frame the different observations have been assigned.
+unique(opt_tree$where)
+
+```
+
+```{r}
+# frame
+opt_tree$frame
+```
+
+
+```{r}
+# 
+rn <- rownames(opt_tree$frame)
+lev <- rn[sort(unique(opt_tree$where))]
+where <- factor(x = rn[opt_tree$where], levels = lev)
+n <- tapply(log(train_data$SalePrice), INDEX = where, FUN = length)
+
+n
+```
+
 
 ```{r}
 # plot(opt_tree, uniform = TRUE)
