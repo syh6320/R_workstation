@@ -1,0 +1,115 @@
+---
+title: "homework4_4"
+author: "syh"
+date: "June 1, 2017"
+output: pdf_document
+---
+
+```{r}
+# in this section, we are gonna try to build random forest
+# also, we would like to use grid search to find optimal parameters
+```
+
+```{r}
+# read all data (train + prediction) without missing value
+real_all_data <- read.csv(file = "H:/kaggle/houseprice/data/real_all_data_hybrid.csv",
+                          stringsAsFactors = FALSE)[,-c(1,2)]
+```
+
+```{r}
+# transform sale price to log sale price
+real_all_data[,"SalePrice"] <- log(real_all_data[,"SalePrice"])
+```
+
+```{r}
+# we would like to train a linear regression model with regulation
+# 1. convert categorical ones to factors
+for(i in 1:dim(real_all_data)[2]){
+  if(is.character(real_all_data[,i])){
+    real_all_data[,i] <- as.factor(real_all_data[,i])
+  }
+}
+```
+
+```{r}
+# 1. split all data into train and prediction
+
+model_data <- real_all_data[1:1460,]
+
+pre_x <- real_all_data[-c(1:1460),]
+
+# 2. split model data into train and test
+set.seed(1000)
+train_ind <- sample(1:dim(model_data)[1], size = dim(model_data)[1] * 0.7)
+
+train_data <- model_data[train_ind,]
+test_data <- model_data[-train_ind,]
+```
+
+
+```{r}
+# train a random forest
+library(randomForest)
+
+formula <- "SalePrice ~. - SalePrice"
+set.seed(1)
+rf <- randomForest(formula = as.formula(formula), data = train_data, 
+                   importance = TRUE, ntree = 500
+                   # xtest = subset(test_data, select = -SalePrice),
+                   # ytest = test_data[,"SalePrice"]
+                   )
+```
+
+```{r}
+# have a look at this random forest
+rf
+```
+
+```{r}
+plot(rf)
+# about 100 trees, error become relatively constant
+```
+
+```{r}
+# have a look at importance of features
+varImpPlot(x = rf)
+# from graph below, we find these important features are same with ones used in rpart
+```
+
+```{r}
+# importacne
+rf$importance[order(-rf$importance[,"%IncMSE"]),]
+```
+
+
+```{r}
+# use partialPlot to check each features against saleprice
+name_order <- order(-rf$importance[,"%IncMSE"])
+
+fea_name <- rownames(rf$importance)[name_order]
+
+for(name in fea_name[1:10]){
+  
+  partialPlot(x = rf, pred.data = train_data, 
+              x.var = eval(name), which.class = T,
+              xlab = name, ylab = "Sale Price")
+}
+```
+
+```{r}
+# calculate SSE on test data
+est_test_sp <- predict(object = rf, newdata = test_data)
+sum((est_test_sp - test_data[,"SalePrice"]) ^ 2)
+# much lower than linear regression and simple tree
+```
+
+```{r}
+# make prediction
+pre_sale_price <- predict(object = rf, newdata = pre_x)
+result <- data.frame(Id = c(1461:2919), SalePrice = exp(pre_sale_price))
+write.csv(x = result, file = "H:/kaggle/houseprice/data/submission_6.csv",
+          row.names = FALSE)
+# Your submission scored 0.14541, not good.
+```
+
+

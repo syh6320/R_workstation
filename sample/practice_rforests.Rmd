@@ -1,0 +1,103 @@
+---
+title: "practice_rforests"
+author: "syh"
+date: "May 29, 2017"
+output: pdf_document
+---
+
+```{r}
+# this file contains data for training and prediction
+# No missing value, id
+data <- read.csv(file = "H:/kaggle/houseprice/data/real_all_data_hybrid.csv", 
+                 stringsAsFactors = FALSE,
+                 row.names = NULL)[,-c(1,2)]
+
+```
+
+```{r}
+# we would like to use randomForest this library.
+# missing value isn't allowed here
+# catergorical feature must be converted to factors
+for(i in 1:dim(data)[2]){
+  if(is.character(data[,i])){
+    data[,i] <- as.factor(data[,i])
+  }
+}
+```
+
+
+```{r}
+# split data into train and prediction
+train <- data[1:1460,]
+prediction <- data[-c(1:1460),]
+```
+
+
+```{r}
+# split data into train and test
+set.seed(1)
+train_ind <- sample(1:dim(train)[1], size = dim(train)[1] * 0.7)
+train_data <- train[train_ind,]
+test_data <- train[-train_ind,]
+```
+
+
+```{r}
+# Random Forest
+library(randomForest)
+formula <- "log(SalePrice) ~. -SalePrice"
+```
+
+```{r}
+rf1 <- randomForest(formula = as.formula(formula), data = train_data, 
+                    ntree = 500, importance = TRUE)
+rf1
+```
+
+```{r}
+# get some certain tree
+getTree(rfobj = rf1, k = 1, labelVar = TRUE)
+# status: if it's -1, it's a leaf node, otherwise not.
+#prediction: mean of response variable at this point
+```
+
+```{r}
+# remember when we train a random forest, a parameter is importance
+# that means assessing importance of each variable
+# let's have a look at it.
+varImpPlot(rf1)
+# %incMSE: after randomly permutate values in a feature, what percentage the MSE will increase.
+# as larger %incMSE, more important this featues is.
+# Maybe we can use this to select featues before train model
+
+```
+
+```{r}
+imp_df <- rf1$importance
+imp_ord <- order(-imp_df[,"%IncMSE"])
+imp_df[imp_ord,]
+```
+
+
+
+```{r}
+# 
+imp_order <- order(- rf1$importance[,"%IncMSE"])
+imp_ord_names <- rownames(rf1$importance)[imp_order]
+for(name in imp_ord_names[1:2]){
+  # print(eval(name))
+  partialPlot(rf1, train_data, eval(name), main=name, xlab=name)
+}
+```
+
+
+```{r}
+plot(rf1)
+```
+
+```{r}
+# predict
+pre_saleprice <- predict(rf1, test_data)
+sum((pre_saleprice - log(test_data$SalePrice))^2)
+```
+

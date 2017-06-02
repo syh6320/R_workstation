@@ -1,0 +1,137 @@
+---
+title: "practice_Xgboost"
+author: "syh"
+date: "May 29, 2017"
+output: pdf_document
+---
+
+```{r}
+# for xgboost,only matrix is supported
+data <- read.csv(file = "H:/kaggle/houseprice/data/real_all_data_hybrid.csv", 
+                 stringsAsFactors = FALSE,
+                 row.names = NULL)[,-c(1,2)]
+```
+
+```{r}
+# convert to factor
+for(i in 1:dim(data)[2]){
+  if(is.character(data[,i])){
+    data[,i] <- as.factor(data[,i])
+  }
+}
+# convert to matrix
+dep_matrix <- model.matrix(~., data = subset(data, select = -SalePrice))
+```
+
+```{r}
+# split data into train and prediction
+model_x <- dep_matrix[1:1460,]
+model_y <- log(data[1:1460,"SalePrice"])
+
+pred_x <- dep_matrix[-c(1:1460),]
+pred_y <- log(data[-c(1:1460),"SalePrice"])
+
+# split data into train and test
+set.seed(1)
+train_ind <- sample(1:dim(model_x)[1], size = dim(model_x)[1] * 0.7)
+
+train_x <- model_x[train_ind,]
+train_y <- model_y[train_ind]
+
+test_x <- pred_x[-train_ind,]
+test_y <- pred_y[-train_ind]
+```
+
+```{r}
+# train boost
+library(xgboost)
+set.seed(2)
+par <- list(objective = "reg:linear", 
+            max_depth = 8,
+            nthread = 3
+            )
+
+xgb <- xgboost(data = train_x,label = train_y, nrounds = 20, params = par, verbose = 2)
+               
+```
+
+
+```{r}
+# importance of featues
+importance <- xgb.importance(feature_names = colnames(train_x), model = xgb)
+importance
+# Gain: contribution of each feature to the model. improvement in accuracy brought by a feature to the branches it is on.
+# For boosted tree model, gain of each feature in each branch of each tree is taken into account, 
+#    then average per feature to give a vision of the entire model.
+#    Highest percentage means important feature to predict the label used for the training.
+# Cover: the number of observation through a branch using this feature as split feature 
+# Frequency: counts the number of times a feature is used in all generated trees (often we don't use it).
+```
+
+```{r}
+xgb.plot.importance(importance[1:6,])
+```
+
+```{r}
+# use our model's cross validation function to find optimal nrounds
+gb_cv <- xgb.cv(params = par, data = train_x, nrounds = 100, nfold = 10, label = train_y)
+
+```
+
+```{r}
+which.min(gb_cv$evaluation_log$test_rmse_mean)
+```
+
+
+
+```{r}
+plot(gb_cv$evaluation_log$test_rmse_mean, type = 'l', col = "red")
+lines(gb_cv$evaluation_log$train_rmse_mean, type = 'l', col = "blue")
+```
+
+```{r}
+# just like before, we would like to find the minimum nrounds whose test RMSE is 1std within real minimum test RMSE
+cv_log <- as.data.frame(gb_cv$evaluation_log)
+opt_round <- cv_log[min(which(with(cv_log, 
+                                   (test_rmse_mean - test_rmse_std) <= min(test_rmse_mean) ))), "iter"]
+```
+
+```{r}
+# train a new xgboost model with optimal rounds
+opt_xgb <- xgboost(data = train_x, label = train_y, 
+                   params = par, nrounds = opt_round,verbose = 0)
+```
+
+```{r}
+# what about other features except nrounds
+# assuming that we run 20 kinds of combinations
+
+all_param = NULL
+all_test_rmse = NULL
+all_train_rmse = NULL
+
+for(i in c(1:20)){
+  
+  # set all possible combinations of parameters
+  params <- list(object = "reg:linear",
+                 eta = runif(n = 1, min = 0.01, max = 0.3),
+                 max_depth = sample(5:12, 1)
+                 )
+  # set fixed parameter
+  nf <- 10
+  
+  seed <- sample.int(10000, 1)
+  set.seed(seed)
+  tmp_cv_gb <- xgb.cv(params = params, data = train_x, nrounds = opt_round,
+                      nfold = nf, label = train_y, verbose = 0, nthread=6)
+  
+  all_param <- rbind(all_param, unlist(params)[-1])
+  all_train_rmse <- c(all_train_rmse, min(tmp_cv_gb$evaluation_log$train_rmse_mean))
+  all_test_rmse <- c(all_test_rmse, min(tmp_cv_gb$evaluation_log$test_rmse_mean))
+}
+```
+
+```{r}
+
+```
+
