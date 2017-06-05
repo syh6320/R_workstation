@@ -51,57 +51,69 @@ test_data <- model_data[-train_ind,]
 # train a random forest
 library(randomForest)
 
+sse <- Inf
+opt_rf <- NULL
+
 formula <- "SalePrice ~. - SalePrice"
-set.seed(1)
-rf <- randomForest(formula = as.formula(formula), data = train_data, 
-                   importance = TRUE, ntree = 500
-                   # xtest = subset(test_data, select = -SalePrice),
-                   # ytest = test_data[,"SalePrice"]
-                   )
+# parameters ntree, mtry, nodesize
+for(i in 1:100){
+  
+  seed <- sample.int(10000, 1)
+  set.seed(seed)
+  rf <- randomForest(formula = as.formula(formula), data = train_data, 
+                     importance = TRUE, 
+                     ntree = sample(x = c(100,200), 1),
+                     mtry = sample(x = c(2:8), size = 1),
+                     nodesize = sample(c(10,20,30,40),1)
+                     )
+  est_test_sp <- predict(object = rf, newdata = test_data)
+  tmp_sse <- sum((est_test_sp - test_data[,"SalePrice"]) ^ 2)
+  
+  if(see > tmp_sse){
+    see <- tmp_sse
+    opt_rf <- rf
+  }
+  
+}
+
 ```
 
 ```{r}
 # have a look at this random forest
-rf
+opt_rf
 ```
 
 ```{r}
-plot(rf)
+plot(opt_rf)
 # about 100 trees, error become relatively constant
 ```
 
 ```{r}
 # have a look at importance of features
-varImpPlot(x = rf)
+varImpPlot(x = opt_rf)
 # from graph below, we find these important features are same with ones used in rpart
 ```
 
 ```{r}
 # importacne
-rf$importance[order(-rf$importance[,"%IncMSE"]),]
+opt_rf$importance[order(-opt_rf$importance[,"%IncMSE"]),]
 ```
 
 
 ```{r}
 # use partialPlot to check each features against saleprice
-name_order <- order(-rf$importance[,"%IncMSE"])
+name_order <- order(-opt_rf$importance[,"%IncMSE"])
 
-fea_name <- rownames(rf$importance)[name_order]
+fea_name <- rownames(opt_rf$importance)[name_order]
 
 for(name in fea_name[1:10]){
   
-  partialPlot(x = rf, pred.data = train_data, 
+  partialPlot(x = opt_rf, pred.data = train_data, 
               x.var = eval(name), which.class = T,
               xlab = name, ylab = "Sale Price")
 }
 ```
 
-```{r}
-# calculate SSE on test data
-est_test_sp <- predict(object = rf, newdata = test_data)
-sum((est_test_sp - test_data[,"SalePrice"]) ^ 2)
-# much lower than linear regression and simple tree
-```
 
 ```{r}
 # make prediction
