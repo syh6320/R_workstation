@@ -83,24 +83,22 @@ xgb.ggplot.importance(importance_matrix = importance, top_n = 15)
 ```{r}
 # let's calculate the sse of this model on test data
 est_y <- predict(object = xgb, newdata = test_x)
-see <- sum((est_y - test_y) ^ 2)
-see
-# it seems that it's even worse than random forest, linear regression
+sqrt(mean((est_y - test_y) ^ 2))
 ```
 
 
 ```{r}
-# try to use xgb.cv, cross validation, to find optimal combination of parameters.
+# try to use caret, cross validation to find optimal combination of parameters.
 # set possible combinations of parameters
 library(caret)
 paraGrid <- expand.grid(
-            nrounds = c(100,200),
-            max_depth = c(5, 10, 15),
-            eta = c(0.01,0.1, 0.3),
+            nrounds = c(200, 250, 300),
+            max_depth = c(3, 5, 10),
+            eta = c(0.05,0.1, 0.2),
             gamma = 0,  # first 0
-            min_child_weight = c(5, 10, 15),
-            subsample = c(.5, 0.6, 0.7, .8),
-            colsample_bytree = c(0.5, 0.6, 0.7, 0.8)
+            min_child_weight = c(10, 15, 20),
+            subsample = c(0.6, 0.7, 0.8, 0.9),
+            colsample_bytree = c(0.6, 0.7, 0.8)
             )
 
 ```
@@ -116,8 +114,10 @@ xgb_Control <- trainControl(method = "repeatedcv", verboseIter = F,
 
 ```{r}
 # trian our model using cross validation for grid search for parameters
+
 gbm_train <- train(x = train_x, y = train_y, method = "xgbTree", 
                    trControl = xgb_Control, tuneGrid = paraGrid)
+
 ```
 
 
@@ -127,11 +127,10 @@ head(gbm_train$result[rmse_order,])
 ```
 
 ```{r}
-# find the best parameter here is eta = 0.1, max_depth = 5, gmma = 0,
-# colsmaple_bytree = 0.8(maximum), min_child_weight = 15(which is maximum),
-# subsample = 0.8(is maximum),  nround = 200(maximum)
-# these maximum parameters should be adjusted again
+# for now best parameters
+gbm_train$best
 ```
+
 
 ```{r}
 # let's make a estimate on test data
@@ -140,55 +139,12 @@ sqrt(mean((est_y - test_y) ^ 2))
 ```
 
 ```{r}
-# we find that difference between est_y and minimum rmse, 0.1264137, is large
-# so we should also tune parameter gamma
-```
-
-```{r}
-# run a more precise tune 
-paraGrid1 <- expand.grid(
-            nrounds = c(200, 250, 300),
-            max_depth = 5,
-            eta = c(0.05,0.1, 0.2),
-            gamma = 0,
-            min_child_weight = c(15,20,30),
-            subsample = c(0.7, .8, 0.9),
-            colsample_bytree = c(0.8, 0.9)
-            )
-```
-
-```{r}
-gbm_train1 <- train(x = train_x, y = train_y, method = "xgbTree", 
-                   trControl = xgb_Control, tuneGrid = paraGrid1)
-```
-
-```{r}
-gbm_train1$bestTune
-```
-
-```{r}
-# for now best parameters
-# nround = 300(maximum), max_depth = 5, eta = 0.05, gamma = 0
-# colsample_bytree = 0.8,
-# subsample = 0.7
-# min_child_weight = 15
-```
-
-```{r}
-rmse_order1 <- order(gbm_train1$results$RMSE)
-head(gbm_train1$results[rmse_order1,])
-```
-
-```{r}
-est_y1 <- predict(object = gbm_train1, newdata = test_x)
-sqrt(mean((est_y1 - test_y)^2))
-```
-
-```{r}
 # make prediction
-pre_sale_price <- predict(object = gbm_train1, newdata = pre_x)
+pre_sale_price <- predict(object = gbm_train, newdata = pre_x)
 result <- data.frame(Id = c(1461:2919), SalePrice = exp(pre_sale_price))
 write.csv(x = result, file = "H:/kaggle/houseprice/data/submission_7.csv",
           row.names = FALSE)
+# the score on kaggle is about 0.1349, not better than before.
+# I'm pretty sad now ...
 ```
 

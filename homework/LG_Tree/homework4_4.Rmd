@@ -7,7 +7,7 @@ output: pdf_document
 
 ```{r}
 # in this section, we are gonna try to build random forest
-# also, we would like to use grid search to find optimal parameters
+# also, we would like to use mlr to find optimal parameters
 ```
 
 ```{r}
@@ -48,76 +48,87 @@ test_data <- model_data[-train_ind,]
 
 
 ```{r}
-# train a random forest
 library(randomForest)
-
-sse <- Inf
-opt_rf <- NULL
-
-formula <- "SalePrice ~. - SalePrice"
-# parameters ntree, mtry, nodesize
-for(i in 1:100){
-  
-  seed <- sample.int(10000, 1)
-  set.seed(seed)
-  rf <- randomForest(formula = as.formula(formula), data = train_data, 
-                     importance = TRUE, 
-                     ntree = sample(x = c(100,200), 1),
-                     mtry = sample(x = c(2:8), size = 1),
-                     nodesize = sample(c(10,20,30,40),1)
-                     )
-  est_test_sp <- predict(object = rf, newdata = test_data)
-  tmp_sse <- sum((est_test_sp - test_data[,"SalePrice"]) ^ 2)
-  
-  if(see > tmp_sse){
-    see <- tmp_sse
-    opt_rf <- rf
-  }
-  
-}
+library(mlr)
+#create a task
+traintask <- makeRegrTask(data = train_data,target = "SalePrice") 
+testtask <- makeRegrTask(data = test_data,target = "SalePrice")
 
 ```
 
 ```{r}
-# have a look at this random forest
-opt_rf
+#create learner
+rf_lrn <- makeLearner("regr.randomForest",predict.type = "response")
+rf_lrn$par.vals <- list(ntree = 100L, importance=TRUE)
+```
+
+
+```{r}
+#set 5 fold cross validation
+rdesc <- makeResampleDesc("CV",iters=5L)
+
+# Fit models according to a resampling strategy.
+r <- resample(learner = rf_lrn, task = traintask, resampling = rdesc, measures = mse, show.info = T)
+```
+
+```{r}
+getParamSet(rf_lrn)
+```
+
+
+```{r}
+
+# define parameters we want to tune -- you may want to adjust the bounds
+ps <- makeParamSet(
+  makeIntegerLearnerParam(id = "ntree", default = 100L, lower = 80L, upper = 150L),
+  makeIntegerLearnerParam(id = "nodesize", default = 15L, lower = 10L, upper = 50L),
+  makeIntegerLearnerParam(id = "mtry", default = 8L, lower = 6, upper = 12L)
+)
+
+# random sampling of the configuration space with at most 100 samples
+ctrl <- makeTuneControlRandom(maxit = 100L)
+
+
+tune <- tuneParams(learner = rf_lrn, task = traintask, resampling = rdesc, measures = list(mse), par.set = ps, control = ctrl, show.info = T)
+
+```
+
+```{r}
+# the mse is little better than previous
+```
+
+
+```{r}
+set.seed(2)
+formula <- "SalePrice ~.-SalePrice"
+opt_rf <- randomForest(as.formula(formula),data = train_data, ntree = 116, 
+                       mtry = 11, nodesize = 10, importance = T)
 ```
 
 ```{r}
 plot(opt_rf)
-# about 100 trees, error become relatively constant
 ```
 
 ```{r}
-# have a look at importance of features
-varImpPlot(x = opt_rf)
-# from graph below, we find these important features are same with ones used in rpart
+imp_ord <- order(-opt_rf$importance[, "%IncMSE"])
+opt_rf$importance[imp_ord,]
 ```
 
 ```{r}
-# importacne
-opt_rf$importance[order(-opt_rf$importance[,"%IncMSE"]),]
+varImpPlot(x = opt_rf, sort = T, n.var = 10)
 ```
 
 
 ```{r}
-# use partialPlot to check each features against saleprice
-name_order <- order(-opt_rf$importance[,"%IncMSE"])
-
-fea_name <- rownames(opt_rf$importance)[name_order]
-
-for(name in fea_name[1:10]){
-  
-  partialPlot(x = opt_rf, pred.data = train_data, 
-              x.var = eval(name), which.class = T,
-              xlab = name, ylab = "Sale Price")
-}
+# make estimate on test data
+est_test_sp <- predict(object = opt_rf, newdata = test_data)
+mean((est_test_sp - test_data[,"SalePrice"]) ^ 2)
 ```
 
 
 ```{r}
 # make prediction
-pre_sale_price <- predict(object = rf, newdata = pre_x)
+pre_sale_price <- predict(object = opt_rf, newdata = pre_x)
 result <- data.frame(Id = c(1461:2919), SalePrice = exp(pre_sale_price))
 write.csv(x = result, file = "H:/kaggle/houseprice/data/submission_6.csv",
           row.names = FALSE)
