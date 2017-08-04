@@ -1,3 +1,4 @@
+
 # for the distributions
 # d stands for density, p stands for cdf, q(cdf) finds the value x with cdf,
 # r stands for generating random variable following dist
@@ -131,17 +132,26 @@ mean_diff <- mean(log(newHZ$SalePrice)) -
 sample_stderr <- sqrt(var(log(newHZ$SalePrice))/dim(newHZ)[1] +
                         var(log(oldHZ$SalePrice))/dim(oldHZ)[1])
 effect_size <- mean_diff / sample_stderr
+
 pwr.t2n.test(n1 = dim(newHZ)[1], 
              n2 = dim(oldHZ)[1], 
-             d = effect_size,
+             d = mean_diff,
              sig.level = 0.05, 
              alternative = 'two.sided')
+
+# pwr.t2n.test(n1 = dim(newHZ)[1], 
+             # n2 = dim(oldHZ)[1], 
+             # d = effect_size,
+             # sig.level = 0.05, 
+             # alternative = 'two.sided')
+
 # learn pwr.t2n.test
 pwr.t2n.test(n1 = dim(newHZ)[1], 
              n2 = dim(oldHZ)[1],
              sig.level = 0.05,
-             power = 0.8, 
+             power = 1, 
              alternative = 'two.sided')
+
 pwr.t2n.test(n1 = dim(newHZ)[1], 
              d = 0.148,
              sig.level = 0.05,

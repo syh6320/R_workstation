@@ -6,7 +6,8 @@ output: pdf_document
 ---
 
 ```{r}
-train <- read.csv(file = "H:/kaggle/houseprice/data/train.csv", stringsAsFactors = FALSE)
+train <- read.csv(file = "G:/kaggle/houseprice/data/train.csv", 
+                  stringsAsFactors = FALSE)
 ```
 
 ```{r}

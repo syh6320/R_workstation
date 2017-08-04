@@ -1,4 +1,4 @@
-train_data <- read.csv("G:/kaggle/houseprice/data/train.csv")
+train_data <- read.csv("H:/kaggle/houseprice/data/train.csv")
 summary(train_data)
 
 which(is.na(train_data$Alley))
@@ -10,6 +10,12 @@ plot(density(train_data$LotArea))
 
 typeof(train_data$OverallQual)
 barplot(table(train_data$OverallQual))
+
+
+library(lattice)
+bwplot(OverallQual ~ SalePrice, data = train_data)
+bwplot(Neighborhood ~ SalePrice, data = train_data)
+bwplot(LotArea ~ SalePrice, data = train_data)
 
 correlation <- NULL
 correlation <- sapply(train_data, function(col){
