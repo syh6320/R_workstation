@@ -1,0 +1,83 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+# load library
+library(mlbench) # data in this library
+library(caret)
+```
+
+
+```{r}
+# load data
+data("PimaIndiansDiabetes")
+```
+
+```{r}
+correlation <- cor(PimaIndiansDiabetes[,1:8])
+```
+
+```{r}
+print(correlation)
+```
+
+```{r}
+# find highly correlated variables
+high_cor <- findCorrelation(correlation, cutoff = 0.5, names = T)
+```
+
+```{r}
+print(high_cor)
+```
+
+```{r}
+# prepare training scheme
+control <- trainControl(method="repeatedcv", number=10, repeats=3)
+```
+
+```{r}
+# train the model
+library(e1071)
+model <- train(diabetes ~., data=PimaIndiansDiabetes, method="lvq", preProcess="scale", trControl=control)
+```
+
+```{r}
+# estimate variable importance
+importance <- varImp(model, scale=FALSE)
+```
+
+```{r}
+# summarize importance
+print(importance)
+# plot importance
+plot(importance)
+```
+
+
+
+```{r}
+# define the control using a random forest selection function
+control <- rfeControl(functions=rfFuncs, method="cv", number=10)
+
+# run the RFE algorithm
+results <- rfe(PimaIndiansDiabetes[,1:7], PimaIndiansDiabetes[,9], sizes=c(1:7), rfeControl=control)
+```
+
+```{r}
+# summarize the results
+print(results)
+```
+
+```{r}
+# list the chosen features
+predictors(results)
+```
+
+
+```{r}
+# plot the results
+plot(results, type=c("g", "o"))
+```
+
