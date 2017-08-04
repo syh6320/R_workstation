@@ -1,4 +1,5 @@
-train <- read.csv("train.csv", stringsAsFactors = FALSE)
+
+train <- read.csv("G:/kaggle/houseprice/data/train.csv", stringsAsFactors = FALSE)
 with(train, plot(X1stFlrSF, SalePrice))
 with(train, plot(X1stFlrSF, log(SalePrice))) # to stablize the variance of saleprice
 
@@ -57,6 +58,7 @@ plot(mod.simp$fit, mod.simp$res, xlab = 'Fitted', ylab = 'residual')
 which.min(mod.simp$res)
 
 plot(mod.simp)
+
 # first plot we can check unbiased/biased and homo/hetero of the residual
 # second plot to check the normality of the residual. 
 # qqplot: for ith percentile data point, find ith percentile in normal distribution.
